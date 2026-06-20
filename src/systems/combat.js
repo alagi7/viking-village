@@ -91,7 +91,7 @@ export const procCombat = ({ hunters, monsters, resources, buildings, tickCount,
           h.complaint = pick(h.recoverType === 'HP' ? HP_COMPLAINTS : HNG_COMPLAINTS);
           h.complaintUntil = now + 3500;
         }
-        const okHP = h.recoverType === 'HP' && h.hp >= maxHp * 0.75 && !bldg;
+        const okHP = h.recoverType === 'HP' && h.hp >= maxHp * 0.75 && h.hunger >= 30 && !bldg;
         if (okHP) {
           const pz = h.pendingZone || h.prevZone;
           h.recoverType = null; h.prevZone = null; h.pendingZone = null;
@@ -205,10 +205,11 @@ export const procCombat = ({ hunters, monsters, resources, buildings, tickCount,
     // ── Death check ───────────────────────────────────────────────────
     if (h.hp <= 0) {
       const altar = buildings.find(b => b.type === 'ALTAR');
-      const dp = altar ? { tx: altar.tx + 2, ty: altar.ty + 2 } : randInZone('VILLAGE');
+      const hq = buildings.find(b => b.type === 'HEADQUARTERS');
+      const dp = altar ? { tx: altar.tx + 2, ty: altar.ty + 2 } : hq ? { tx: hq.tx + 2, ty: hq.ty + 2 } : { tx: 59, ty: 59 };
       const prevZ = h.location !== 'TRAVELING' ? h.location : (h.destZone || h.prevZone || null);
       Object.assign(h, { isGhost: true, hp: 0, location: 'TRAVELING', destZone: 'VILLAGE', destTx: dp.tx, destTy: dp.ty, combatTargetId: null, savedDest: null, recoverType: null, recoverUntil: null, prevZone: null, complaint: null, complaintUntil: null, ghostPrevZone: prevZ });
-      logs.push(`💀 ${h.name} 阵亡！以幽灵身份返回${altar ? '祭坛' : '村庄'}...`);
+      logs.push(`💀 ${h.name} 阵亡！以幽灵身份返回${altar ? '祭坛' : '大本营'}...`);
       return;
     }
 
@@ -217,7 +218,8 @@ export const procCombat = ({ hunters, monsters, resources, buildings, tickCount,
     if (!st.neverFlee && (h.hp < fhp || h.hunger < 20)) {
       const rt = h.hp < fhp ? 'HP' : 'HUNGER';
       const bldg = buildings.find(b => b.type === (rt === 'HP' ? 'HEALER' : 'TAVERN'));
-      const dp = bldg ? { tx: bldg.tx + 2, ty: bldg.ty + 2 } : randInZone('VILLAGE');
+      const hq = buildings.find(b => b.type === 'HEADQUARTERS');
+      const dp = bldg ? { tx: bldg.tx + 2, ty: bldg.ty + 2 } : hq ? { tx: hq.tx + 2, ty: hq.ty + 2 } : { tx: 59, ty: 59 };
       logs.push(st.coward ? `😰 ${h.name} 胆小鬼逃跑！` : rt === 'HP' ? `🏥 ${h.name} 受伤撤退！` : `🍖 ${h.name} 饥饿撤退！`);
       Object.assign(h, { prevZone: h.location, recoverType: rt, location: 'TRAVELING', destZone: 'VILLAGE', destTx: dp.tx, destTy: dp.ty, combatTargetId: null, savedDest: null, complaint: null, complaintUntil: null });
     }
@@ -238,10 +240,11 @@ export const procCombat = ({ hunters, monsters, resources, buildings, tickCount,
     // Death check for this hunter (may have just been killed by monster)
     if (h.hp <= 0 && !h.isGhost) {
       const altar = buildings.find(b => b.type === 'ALTAR');
-      const dp = altar ? { tx: altar.tx + 2, ty: altar.ty + 2 } : randInZone('VILLAGE');
+      const hq2 = buildings.find(b => b.type === 'HEADQUARTERS');
+      const dp = altar ? { tx: altar.tx + 2, ty: altar.ty + 2 } : hq2 ? { tx: hq2.tx + 2, ty: hq2.ty + 2 } : { tx: 59, ty: 59 };
       const prevZ2 = h.prevZone || (h.location !== 'TRAVELING' ? h.location : null);
       Object.assign(h, { isGhost: true, hp: 0, location: 'TRAVELING', destZone: 'VILLAGE', destTx: dp.tx, destTy: dp.ty, combatTargetId: null, savedDest: null, recoverType: null, recoverUntil: null, prevZone: null, complaint: null, complaintUntil: null, ghostPrevZone: prevZ2 });
-      logs.push(`💀 ${h.name} 在逃跑中被击倒！以幽灵身份返回${altar ? '祭坛' : '村庄'}...`);
+      logs.push(`💀 ${h.name} 在逃跑中被击倒！以幽灵身份返回${altar ? '祭坛' : '大本营'}...`);
     }
   });
 

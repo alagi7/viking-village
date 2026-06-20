@@ -62,11 +62,17 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
       if (bldg) {
         const btx = bldg.tx + 2, bty = bldg.ty + 2;
         if (dst(h.tx, h.ty, btx, bty) > 4) {
-          // Switch to TRAVELING so hunter moves at full TS speed and shows yellow
           return { ...h, location: 'TRAVELING', destZone: 'VILLAGE', destTx: btx, destTy: bty, wtx: null, nextWander: 0, combatTargetId: null };
         }
         return h; // already at building — combat.js proximity check will fire
       }
+      // No building: head to HQ and wait for HP/hunger to recover (combat.js passive regen handles dispatch)
+      const hq = (buildings || []).find(b => b.type === 'HEADQUARTERS');
+      const htx = hq ? hq.tx + 2 : 59, hty = hq ? hq.ty + 2 : 59;
+      if (dst(h.tx, h.ty, htx, hty) > 4) {
+        return { ...h, location: 'TRAVELING', destZone: 'VILLAGE', destTx: htx, destTy: hty, wtx: null, nextWander: 0, combatTargetId: null };
+      }
+      return h; // at HQ — stay put, combat.js okHP/okHunger will clear recoverType and dispatch
     }
     if (!h.wtx || !h.nextWander || now > h.nextWander) {
       const w = randInZone('VILLAGE');

@@ -54,9 +54,10 @@ export const getStats = h => {
     ea += i.stats.atk || 0; ed += i.stats.def || 0; em += i.stats.maxHpBonus || 0;
     ec += i.stats.crit || 0; edo += i.stats.dodge || 0;
   });
+  const lv = Math.max(1, h.level || 1);
   return {
-    atk: Math.round((prof.atk + ea) * (p.atkMul || 1)),
-    def: prof.def + ed,
+    atk: Math.round((prof.atk + ea + (lv - 1)) * (p.atkMul || 1)),
+    def: prof.def + ed + Math.floor((lv - 1) * 0.5),
     maxHp: 100 + em,
     atkSpd: +((prof.atkSpd * (p.atkSpdMul || 1)).toFixed(1)),
     crit: Math.max(0, prof.crit + (p.critAdd || 0) + ec),
@@ -71,14 +72,31 @@ export const getStats = h => {
 
 export const randName = () => NAMES[Math.floor(Math.random() * NAMES.length)];
 
+const ZONE_LEVEL_RANGE = { ICE: [1, 5], MOUNTAIN: [5, 10], FOREST: [10, 15] };
+
+const randMonsterLevel = zone => {
+  const [min, max] = ZONE_LEVEL_RANGE[zone] || [1, 5];
+  return min + Math.floor(Math.random() * (max - min + 1));
+};
+
+const scaleMonster = (def, level) => {
+  const mul = 1 + (level - 1) * 0.15;
+  return {
+    maxHp: Math.round(def.maxHp * mul),
+    atk:   Math.round(def.atk   * mul),
+  };
+};
+
 let mid = 1;
 export const spawnMonster = zone => {
   const es = Object.entries(MONSTER_DEFS).filter(([, d]) => d.zone === zone);
   const [tk, def] = es[Math.floor(Math.random() * es.length)];
+  const level = randMonsterLevel(zone);
+  const scaled = scaleMonster(def, level);
   const p = randInZone(zone), w = randInZone(zone);
   return {
-    id: mid++, zone, typeKey: tk, name: def.name, emoji: def.emoji,
-    hp: def.maxHp, maxHp: def.maxHp, atk: def.atk, loot: def.loot,
+    id: mid++, zone, typeKey: tk, name: def.name, emoji: def.emoji, level,
+    hp: scaled.maxHp, maxHp: scaled.maxHp, atk: scaled.atk, loot: def.loot,
     tx: p.tx, ty: p.ty, wtx: w.tx, wty: w.ty,
     nextWander: Date.now() + Math.random() * 800, targetHunterId: null,
   };
@@ -95,9 +113,11 @@ export const spawnZone = (zone, count) => {
   }
   return cells.slice(0, count).map(([r, c]) => {
     const [tk, def] = es[Math.floor(Math.random() * es.length)], w = randInZone(zone);
+    const level = randMonsterLevel(zone);
+    const scaled = scaleMonster(def, level);
     return {
-      id: mid++, zone, typeKey: tk, name: def.name, emoji: def.emoji,
-      hp: def.maxHp, maxHp: def.maxHp, atk: def.atk, loot: def.loot,
+      id: mid++, zone, typeKey: tk, name: def.name, emoji: def.emoji, level,
+      hp: scaled.maxHp, maxHp: scaled.maxHp, atk: scaled.atk, loot: def.loot,
       tx: b.x1 + c * cW + (0.15 + Math.random() * 0.7) * cW,
       ty: b.y1 + r * cH + (0.15 + Math.random() * 0.7) * cH,
       wtx: w.tx, wty: w.ty,

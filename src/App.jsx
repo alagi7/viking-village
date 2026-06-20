@@ -406,6 +406,8 @@ export default function App() {
       x: Math.min(0, Math.max(-(h.tx * TILE + TILE / 2 - cw / 2), -(MAP_PX - cw))),
       y: Math.min(0, Math.max(-(h.ty * TILE + TILE / 2 - ch / 2), -(MAP_PX - ch))),
     });
+    setSelectedHunterId(h.id);
+    setHunterAction(null);
     setPanel(null);
   };
 
@@ -676,6 +678,7 @@ export default function App() {
                 {ch && <circle cx={cx} cy={cy} r={ER * 1.1} fill="none" stroke="#ef4444" strokeWidth={1} strokeDasharray="3,2" opacity={0.5} />}
                 <circle cx={cx} cy={cy} r={ER} fill={ch ? 'rgba(180,20,20,0.9)' : 'rgba(110,18,18,0.8)'} stroke="#ef4444" strokeWidth={1.5} />
                 <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={ER * 1.1}>{m.emoji}</text>
+                {m.level && <text x={cx} y={by - 8} textAnchor="middle" fontSize={11} fill="white" fontWeight="bold" stroke="rgba(0,0,0,0.6)" strokeWidth={2} paintOrder="stroke">Lv{m.level}</text>}
                 <rect x={cx - ER} y={by} width={ER * 2} height={4} fill="#1f2937" rx={2} />
                 <rect x={cx - ER} y={by} width={ER * 2 * (m.hp / m.maxHp)} height={4} fill={m.hp / m.maxHp > 0.5 ? '#22c55e' : '#ef4444'} rx={2} />
               </g>
@@ -875,6 +878,7 @@ export default function App() {
             <div key={z.key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
               <div style={{ width: 10, height: 10, background: z.fill, borderRadius: 2, flexShrink: 0 }} />
               <span>{z.name}</span>
+              {z.wild && <span style={{ color: '#94a3b8', fontSize: 10 }}>{{ ICE: 'Lv1-5', MOUNTAIN: 'Lv5-10', FOREST: 'Lv10-15' }[z.key]}</span>}
               {z.wild && <><span style={{ color: '#ef4444' }}>👹{monsters.filter(m => m.zone === z.key).length}</span><span style={{ color: '#60a5fa' }}>🧑{hunters.filter(h => h.location === z.key).length}</span></>}
               {!z.wild && <span style={{ color: '#fbbf24' }}>🚶{hunters.filter(h => h.location === 'TRAVELING').length}</span>}
             </div>
