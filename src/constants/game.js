@@ -1,29 +1,54 @@
 export const TILE = 20, MAP_TILES = 250, MAP_PX = MAP_TILES * TILE, HT = MAP_TILES / 2, HPX = MAP_PX / 2;
 export const BSIZE = 4, ER = TILE * 1.4;
 export const GATE_TX = 6, GATE_TY = 5; // village gate — top-left area, hunters enter/exit here
-export const H_SIGHT = 12, M_SIGHT = 40, M_ATK = 2.5, SEP = 4;
+// Portal tile positions (match SVG circles at cx=40 and cx=HPX-40, cy=HPX/2)
+export const PORTAL_TX_LEFT  = 2;                     // 左侧传送门 tile x (cx=40/TILE=2)
+export const PORTAL_TX_RIGHT = Math.round(HT) - 2;    // 右侧传送门 tile x (cx=(HPX-40)/TILE≈123)
+export const PORTAL_TY       = Math.floor(HT / 2);    // 传送门 tile y (cy=HPX/2/TILE=62)
+export const H_SIGHT = 12, M_SIGHT = 40, M_ATK = 3, SEP = 3.5;
 export const T_SPD = 10, W_SPD = 2.4, WILD_W_SPD = 5.6, MON_SPD = 3.0, MOVE_MS = 120;
 export const TS = T_SPD * MOVE_MS / 1000, WS = W_SPD * MOVE_MS / 1000, WILD_WS = WILD_W_SPD * MOVE_MS / 1000, MS = MON_SPD * MOVE_MS / 1000;
 
 export const ZONE_DEFS = {
-  VILLAGE:  { key: 'VILLAGE',  name: '🏘️ 村庄', fill: '#4a8a4a', tx: 0,  ty: 0,  wild: false },
-  ICE:      { key: 'ICE',      name: '🧊 冰原', fill: '#b0d8ee', tx: HT, ty: 0,  wild: true  },
-  FOREST:   { key: 'FOREST',   name: '🌲 暗森', fill: '#183818', tx: 0,  ty: HT, wild: true  },
-  MOUNTAIN: { key: 'MOUNTAIN', name: '⛰️ 雪山', fill: '#8898a8', tx: HT, ty: HT, wild: true  },
+  VILLAGE:    { key: 'VILLAGE',    name: '🏘️ 村庄',   fill: '#4a8a4a', wild: false },
+  ICE_1:      { key: 'ICE_1',      name: '🧊 冰原·一', fill: '#b0d8ee', wild: true  },
+  ICE_2:      { key: 'ICE_2',      name: '🧊 冰原·二', fill: '#7ab8d8', wild: true  },
+  MOUNTAIN_1: { key: 'MOUNTAIN_1', name: '⛰️ 雪山·一', fill: '#8898a8', wild: true  },
+  MOUNTAIN_2: { key: 'MOUNTAIN_2', name: '⛰️ 雪山·二', fill: '#5e6e7e', wild: true  },
+  FOREST_1:   { key: 'FOREST_1',   name: '🌲 暗森·一', fill: '#1a4a1a', wild: true  },
+  FOREST_2:   { key: 'FOREST_2',   name: '🌲 暗森·二', fill: '#0e2e0e', wild: true  },
+  FOREST_3:   { key: 'FOREST_3',   name: '🌲 暗森·三', fill: '#071807', wild: true  },
+};
+
+export const ZONE_CHAIN = ['VILLAGE', 'ICE_1', 'ICE_2', 'MOUNTAIN_1', 'MOUNTAIN_2', 'FOREST_1', 'FOREST_2', 'FOREST_3'];
+
+export const ZONE_UNLOCK_KILLS = {
+  VILLAGE: 0, ICE_1: 0, ICE_2: 30, MOUNTAIN_1: 80,
+  MOUNTAIN_2: 160, FOREST_1: 280, FOREST_2: 450, FOREST_3: 680,
+};
+
+export const ZONE_MONSTER_POOL = {
+  ICE_1:      ['ICE_WOLF'],
+  ICE_2:      ['ICE_WOLF', 'FROST_GIANT'],
+  MOUNTAIN_1: ['YETI'],
+  MOUNTAIN_2: ['YETI', 'ICE_DRAGON'],
+  FOREST_1:   ['GIANT_WOLF'],
+  FOREST_2:   ['TROLL', 'GIANT_WOLF'],
+  FOREST_3:   ['TROLL', 'GIANT_WOLF', 'ICE_DRAGON'],
 };
 
 export const MONSTER_DEFS = {
-  ICE_WOLF:    { zone: 'ICE',      name: '冰狼',   emoji: '🐺', maxHp: 60,  atk: 10, xp: 15,  loot: { gold: 15, ore: 5 },
+  ICE_WOLF:    { zone: 'ICE',      name: '冰狼',   emoji: '🐺', maxHp: 21,  atk: 4,  xp: 15,  loot: { gold: 15, ore: 5 },
     dt: { mk: 'wolf_pelt',     mc: 0.70, ec: 0.15, w: { COMMON: 65, GOOD: 30, RARE: 5,  EPIC: 0,  LEGENDARY: 0 } } },
-  FROST_GIANT: { zone: 'ICE',      name: '霜巨人', emoji: '👹', maxHp: 150, atk: 25, xp: 55,  loot: { gold: 50, ore: 20 },
+  FROST_GIANT: { zone: 'ICE',      name: '霜巨人', emoji: '👹', maxHp: 53,  atk: 9,  xp: 55,  loot: { gold: 50, ore: 20 },
     dt: { mk: 'frost_crystal', mc: 0.80, ec: 0.35, w: { COMMON: 20, GOOD: 40, RARE: 30, EPIC: 10, LEGENDARY: 0 } } },
-  TROLL:       { zone: 'FOREST',   name: '山精',   emoji: '👺', maxHp: 90,  atk: 18, xp: 28,  loot: { gold: 30, wood: 25 },
+  TROLL:       { zone: 'FOREST',   name: '山精',   emoji: '👺', maxHp: 32,  atk: 7,  xp: 28,  loot: { gold: 30, wood: 25 },
     dt: { mk: 'troll_hide',    mc: 0.70, ec: 0.20, w: { COMMON: 50, GOOD: 35, RARE: 13, EPIC: 2,  LEGENDARY: 0 } } },
-  GIANT_WOLF:  { zone: 'FOREST',   name: '巨狼',   emoji: '🐗', maxHp: 70,  atk: 14, xp: 20,  loot: { gold: 20, food: 30 },
+  GIANT_WOLF:  { zone: 'FOREST',   name: '巨狼',   emoji: '🐗', maxHp: 25,  atk: 5,  xp: 20,  loot: { gold: 20, food: 30 },
     dt: { mk: 'wolf_fang',     mc: 0.65, ec: 0.15, w: { COMMON: 60, GOOD: 33, RARE: 7,  EPIC: 0,  LEGENDARY: 0 } } },
-  YETI:        { zone: 'MOUNTAIN', name: '雪怪',   emoji: '🦣', maxHp: 120, atk: 22, xp: 45,  loot: { gold: 40, ore: 25 },
+  YETI:        { zone: 'MOUNTAIN', name: '雪怪',   emoji: '🦣', maxHp: 42,  atk: 8,  xp: 45,  loot: { gold: 40, ore: 25 },
     dt: { mk: 'yeti_fur',      mc: 0.75, ec: 0.28, w: { COMMON: 30, GOOD: 40, RARE: 22, EPIC: 8,  LEGENDARY: 0 } } },
-  ICE_DRAGON:  { zone: 'MOUNTAIN', name: '冰龙',   emoji: '🐉', maxHp: 250, atk: 40, xp: 130, loot: { gold: 120, ore: 60 },
+  ICE_DRAGON:  { zone: 'MOUNTAIN', name: '冰龙',   emoji: '🐉', maxHp: 88,  atk: 14, xp: 130, loot: { gold: 120, ore: 60 },
     dt: { mk: 'dragon_scale',  mc: 0.95, ec: 0.65, w: { COMMON: 0,  GOOD: 15, RARE: 40, EPIC: 35, LEGENDARY: 10 } } },
 };
 
@@ -49,8 +74,10 @@ export const BUILDING_TYPES = {
 export const HEALER_FEE = 15;
 export const TAVERN_FEE = 8;
 
-// XP needed to go from level N to N+1 (index 0 = 1→2)
-export const XP_PER_LEVEL = [100, 180, 280, 400, 540, 700, 880, 1080, 1300];
+// XP needed to go from level N to N+1 (index 0 = 1→2, 99 entries → max level 100)
+// Formula: 100 + 80*i + 10*i*(i-1), keeps original 1-10 values, scales smoothly to 100
+export const XP_PER_LEVEL = Array.from({ length: 99 }, (_, i) => 100 + 80 * i + 10 * i * (i - 1));
+export const SKILL_LEVEL_XP = [100, 500, 2000, 5000]; // XP to reach skill Lv2, Lv3, Lv4, Lv5
 
 export const SKILL_DEFS = {
   taunt:        { name: '嘲讽', profession: 'WARRIOR', reqLevel: 1,  emoji: '😤', color: '#ef4444', desc: '附近怪物优先攻击自己' },
@@ -115,9 +142,12 @@ export const QUALITY = {
 };
 
 export const EQUIP_SLOTS = {
-  weapon:    { name: '武器', emoji: '⚔️', baseStats: { atk: 10 } },
-  armor:     { name: '护甲', emoji: '🛡️', baseStats: { def: 6, maxHpBonus: 20 } },
-  accessory: { name: '饰品', emoji: '💍', baseStats: { crit: 4, dodge: 3 } },
+  weapon:   { name: '武器', emoji: '⚔️', baseStats: { atk: 10 } },
+  armor:    { name: '护甲', emoji: '🛡️', baseStats: { def: 6, maxHpBonus: 20 } },
+  shoes:    { name: '鞋子', emoji: '👢', baseStats: { dodge: 5 } },
+  offhand:  { name: '副手', emoji: '🗡️', baseStats: { def: 4, atk: 4 } },
+  ring:     { name: '戒指', emoji: '💍', baseStats: { atkSpeed: 0.1, crit: 2 } },
+  necklace: { name: '项链', emoji: '📿', baseStats: { maxHpBonus: 30, crit: 3 } },
 };
 
 export const MATERIALS = {
@@ -130,9 +160,12 @@ export const MATERIALS = {
 };
 
 export const EQ_NAMES = {
-  weapon:    ['霜之刃', '寒冰矛', '极北弓', '雪域剑', '暴风斧', '狼牙刀', '山岳锤', '冰峰戟'],
-  armor:     ['霜甲', '雪狼皮甲', '寒铁盔甲', '山岳盔', '冰晶护甲', '冰熊皮甲'],
-  accessory: ['寒晶戒', '冰霜项链', '雪域护符', '狼牙坠饰', '霜雪腰带', '龙鳞指环'],
+  weapon:   ['霜之刃', '寒冰矛', '极北弓', '雪域剑', '暴风斧', '狼牙刀', '山岳锤', '冰峰戟'],
+  armor:    ['霜甲', '雪狼皮甲', '寒铁盔甲', '山岳盔', '冰晶护甲', '冰熊皮甲'],
+  shoes:    ['霜踏靴', '雪狼皮靴', '疾风战靴', '冰晶软鞋', '山岳行靴'],
+  offhand:  ['寒霜盾', '北境盾', '冰晶格挡', '残月匕首', '龙骨副刃'],
+  ring:     ['寒晶戒', '龙鳞指环', '霜雪戒指', '狼牙指环', '暴风戒'],
+  necklace: ['冰霜项链', '雪域护符', '狼牙坠饰', '霜雪腰带', '龙骨吊坠'],
 };
 
 export const NAMES = ['托尔','奥丁','弗雷','提尔','海姆','布拉吉','雷格纳','比约恩','斯诺里','乌尔夫','艾里克','莱夫','托斯坦','刚纳','哈拉尔','克努特','伊登','芙蕾','英格','阿斯','博格','希尔','古德','兰迪','赫尔','碧尔','索尔','维京','鲁纳','冈纳','西古尔','弗里达','凯伦','埃格尔','赫尔加','托拉','比尔娜'];
@@ -172,6 +205,104 @@ export const RECIPES = [
     forProfession: 'SHAMAN',
     costRes: { ore: 2 },
     costMat: { frost_crystal: 1 },
+    qw: { COMMON: 35, GOOD: 35, RARE: 22, EPIC: 7, LEGENDARY: 1 },
+  },
+  // Offhand
+  {
+    id: 'iron_shield',
+    name: '铁盾',
+    emoji: '🛡️',
+    slot: 'offhand',
+    desc: '厚重铁盾，格挡近战伤害',
+    forProfession: 'WARRIOR',
+    costRes: { ore: 4 },
+    costMat: { wolf_pelt: 1 },
+    qw: { COMMON: 40, GOOD: 35, RARE: 18, EPIC: 6, LEGENDARY: 1 },
+  },
+  {
+    id: 'iron_arrows',
+    name: '铁质箭矢',
+    emoji: '🏹',
+    slot: 'offhand',
+    desc: '锋利铁制箭头，提升弓手攻击',
+    forProfession: 'HUNTER',
+    costRes: { ore: 2, wood: 1 },
+    costMat: { wolf_fang: 1 },
+    qw: { COMMON: 40, GOOD: 35, RARE: 18, EPIC: 6, LEGENDARY: 1 },
+  },
+  {
+    id: 'magic_orb',
+    name: '魔法法球',
+    emoji: '🔵',
+    slot: 'offhand',
+    desc: '凝聚魔力的法球，增强法术威力',
+    forProfession: 'SHAMAN',
+    costRes: { ore: 2 },
+    costMat: { frost_crystal: 2 },
+    qw: { COMMON: 35, GOOD: 35, RARE: 22, EPIC: 7, LEGENDARY: 1 },
+  },
+  // Armor
+  {
+    id: 'iron_armor',
+    name: '铁甲',
+    emoji: '🧥',
+    slot: 'armor',
+    desc: '坚固铁甲，大幅提升防御与生命',
+    costRes: { ore: 5 },
+    costMat: { troll_hide: 1 },
+    qw: { COMMON: 40, GOOD: 35, RARE: 18, EPIC: 6, LEGENDARY: 1 },
+  },
+  {
+    id: 'cloth_armor',
+    name: '布甲',
+    emoji: '👕',
+    slot: 'armor',
+    desc: '轻便布甲，适合法师与弓手',
+    costRes: { wood: 2, food: 2 },
+    costMat: { wolf_pelt: 2 },
+    qw: { COMMON: 45, GOOD: 35, RARE: 15, EPIC: 4, LEGENDARY: 1 },
+  },
+  // Shoes
+  {
+    id: 'iron_boots',
+    name: '铁鞋',
+    emoji: '👢',
+    slot: 'shoes',
+    desc: '沉重铁靴，提供额外防御',
+    costRes: { ore: 3 },
+    costMat: { troll_hide: 1 },
+    qw: { COMMON: 40, GOOD: 35, RARE: 18, EPIC: 6, LEGENDARY: 1 },
+  },
+  {
+    id: 'cloth_boots',
+    name: '布鞋',
+    emoji: '🥿',
+    slot: 'shoes',
+    desc: '轻便布鞋，提升闪避能力',
+    costRes: { wood: 1, food: 1 },
+    costMat: { wolf_pelt: 1 },
+    qw: { COMMON: 45, GOOD: 35, RARE: 15, EPIC: 4, LEGENDARY: 1 },
+  },
+  // Ring
+  {
+    id: 'speed_ring',
+    name: '疾速戒指',
+    emoji: '💍',
+    slot: 'ring',
+    desc: '附有疾速符文，提升攻击速度',
+    costRes: { ore: 3, gold: 20 },
+    costMat: { frost_crystal: 1 },
+    qw: { COMMON: 35, GOOD: 35, RARE: 22, EPIC: 7, LEGENDARY: 1 },
+  },
+  // Necklace
+  {
+    id: 'hp_necklace',
+    name: '生命项链',
+    emoji: '📿',
+    slot: 'necklace',
+    desc: '蕴含生机之力，大幅提升最大生命',
+    costRes: { ore: 2, gold: 15 },
+    costMat: { yeti_fur: 1 },
     qw: { COMMON: 35, GOOD: 35, RARE: 22, EPIC: 7, LEGENDARY: 1 },
   },
 ];

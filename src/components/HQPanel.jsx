@@ -3,14 +3,14 @@ import { PROFESSIONS, PERSONALITIES, PCOLOR, QUALITY } from '../constants/game.j
 
 const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
-export default function HQPanel({ candidates, candidatesRefreshAt, onRecruit, onRefresh, resources, onClose, SS, SH }) {
+export default function HQPanel({ candidates, candidatesRefreshAt, onRecruit, onRefresh, resources, hunterCount, maxHunters, onClose, SS, SH }) {
   const now = Date.now();
   const msLeft = Math.max(0, (candidatesRefreshAt || 0) - now);
   const minLeft = Math.floor(msLeft / 60000);
   const secLeft = Math.floor((msLeft % 60000) / 1000);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={SS} onClick={e => e.stopPropagation()}>
         <div style={SH}>
           <div>
@@ -21,7 +21,9 @@ export default function HQPanel({ candidates, candidatesRefreshAt, onRecruit, on
         </div>
 
         <div style={{ padding: '8px 14px', fontSize: 11, color: '#94a3b8', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>从三位候选人中选择一人招募</span>
+          <span>从三位候选人中选择一人招募
+            {hunterCount >= maxHunters && <span style={{ color: '#ef4444', marginLeft: 8 }}>⚠️ 已达上限 {hunterCount}/{maxHunters}</span>}
+          </span>
           <span style={{ color: msLeft > 0 ? '#60a5fa' : '#22c55e' }}>
             {msLeft > 0 ? `🔄 ${minLeft}分${secLeft}秒后刷新` : '✅ 可手动刷新'}
           </span>
@@ -31,7 +33,7 @@ export default function HQPanel({ candidates, candidatesRefreshAt, onRecruit, on
           {candidates.map(c => {
             const prof = PROFESSIONS[c.profession];
             const pers = PERSONALITIES[c.personality];
-            const canAfford = resources.gold >= 50;
+            const canAfford = resources.gold >= 50 && hunterCount < maxHunters;
             return (
               <div key={c.id} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -64,7 +66,7 @@ export default function HQPanel({ candidates, candidatesRefreshAt, onRecruit, on
                   onClick={() => canAfford && onRecruit(c)}
                   disabled={!canAfford}
                   style={{ width: '100%', background: canAfford ? '#16a34a' : '#1f2937', border: `1px solid ${canAfford ? '#22c55e' : '#374151'}`, color: canAfford ? 'white' : '#4b5563', padding: '9px 0', borderRadius: 7, cursor: canAfford ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: 13 }}>
-                  {canAfford ? `✅ 招募 ${c.name} (50💰)` : '💰 金币不足'}
+                  {hunterCount >= maxHunters ? `🚫 已达上限(${maxHunters}人)` : canAfford ? `✅ 招募 ${c.name} (50💰)` : '💰 金币不足'}
                 </button>
               </div>
             );

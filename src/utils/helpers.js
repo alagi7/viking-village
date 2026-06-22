@@ -1,12 +1,12 @@
 import {
   ZONE_DEFS, PROFESSIONS, PERSONALITIES, QUALITY, EQUIP_SLOTS, EQ_NAMES, MONSTER_DEFS,
-  NAMES, PKEYS, HT, TILE, BSIZE, XP_PER_LEVEL,
+  NAMES, PKEYS, HT, TILE, BSIZE, XP_PER_LEVEL, ZONE_MONSTER_POOL,
 } from '../constants/game.js';
 
 export const calcLevel = xp => {
   let level = 1, rem = xp;
   for (const needed of XP_PER_LEVEL) {
-    if (rem < needed || level >= 10) break;
+    if (rem < needed || level >= 100) break;
     rem -= needed; level++;
   }
   return level;
@@ -25,10 +25,7 @@ export const moveTo = (cx, cy, tx, ty, spd) => {
   return { x: cx + dx / d * spd, y: cy + dy / d * spd, arrived: false };
 };
 
-export const zoneBounds = z => {
-  const zd = ZONE_DEFS[z] || ZONE_DEFS.VILLAGE;
-  return { x1: zd.tx + 3, y1: zd.ty + 3, x2: zd.tx + HT - 3, y2: zd.ty + HT - 3 };
-};
+export const zoneBounds = () => ({ x1: 3, y1: 3, x2: HT - 3, y2: HT - 3 });
 
 export const randInZone = z => {
   const b = zoneBounds(z);
@@ -40,26 +37,26 @@ export const clampZone = (tx, ty, z) => {
   return { tx: Math.max(b.x1, Math.min(b.x2, tx)), ty: Math.max(b.y1, Math.min(b.y2, ty)) };
 };
 
-export const tileZone = (tx, ty) =>
-  tx < HT && ty < HT ? 'VILLAGE' : tx >= HT && ty < HT ? 'ICE' : tx < HT && ty >= HT ? 'FOREST' : 'MOUNTAIN';
+// tileZone is kept for VILLAGE detection only (all zones now use local 0..HT coords)
+export const tileZone = () => 'VILLAGE';
 
 export const hMaxHp = h =>
   100 + Object.values(h.equipment || {}).reduce((s, i) => s + (i?.stats?.maxHpBonus || 0), 0);
 
 export const getStats = h => {
   const prof = PROFESSIONS[h.profession], p = PERSONALITIES[h.personality] || {};
-  let ea = 0, ed = 0, em = 0, ec = 0, edo = 0;
+  let ea = 0, ed = 0, em = 0, ec = 0, edo = 0, eas = 0;
   Object.values(h.equipment || {}).forEach(i => {
     if (!i?.stats) return;
     ea += i.stats.atk || 0; ed += i.stats.def || 0; em += i.stats.maxHpBonus || 0;
-    ec += i.stats.crit || 0; edo += i.stats.dodge || 0;
+    ec += i.stats.crit || 0; edo += i.stats.dodge || 0; eas += i.stats.atkSpeed || 0;
   });
   const lv = Math.max(1, h.level || 1);
   return {
     atk: Math.round((prof.atk + ea + (lv - 1)) * (p.atkMul || 1)),
     def: prof.def + ed + Math.floor((lv - 1) * 0.5),
     maxHp: 100 + em,
-    atkSpd: +((prof.atkSpd * (p.atkSpdMul || 1)).toFixed(1)),
+    atkSpd: +(((prof.atkSpd + eas) * (p.atkSpdMul || 1)).toFixed(2)),
     crit: Math.max(0, prof.crit + (p.critAdd || 0) + ec),
     dodge: Math.max(0, prof.dodge + (p.dodgeAdd || 0) + edo),
     dmgMul: p.dmgMul || 1,
@@ -72,7 +69,11 @@ export const getStats = h => {
 
 export const randName = () => NAMES[Math.floor(Math.random() * NAMES.length)];
 
-const ZONE_LEVEL_RANGE = { ICE: [1, 5], MOUNTAIN: [5, 10], FOREST: [10, 15] };
+const ZONE_LEVEL_RANGE = {
+  ICE_1: [1, 3], ICE_2: [3, 6],
+  MOUNTAIN_1: [5, 8], MOUNTAIN_2: [8, 12],
+  FOREST_1: [6, 10], FOREST_2: [10, 14], FOREST_3: [13, 18],
+};
 
 const randMonsterLevel = zone => {
   const [min, max] = ZONE_LEVEL_RANGE[zone] || [1, 5];
@@ -88,8 +89,16 @@ const scaleMonster = (def, level) => {
 };
 
 let mid = 1;
+
+const getZoneMonsters = zone => {
+  const pool = ZONE_MONSTER_POOL[zone];
+  if (!pool || !pool.length) return [];
+  return pool.map(tk => [tk, MONSTER_DEFS[tk]]).filter(([, d]) => d);
+};
+
 export const spawnMonster = zone => {
-  const es = Object.entries(MONSTER_DEFS).filter(([, d]) => d.zone === zone);
+  const es = getZoneMonsters(zone);
+  if (!es.length) return null;
   const [tk, def] = es[Math.floor(Math.random() * es.length)];
   const level = randMonsterLevel(zone);
   const scaled = scaleMonster(def, level);
@@ -103,7 +112,8 @@ export const spawnMonster = zone => {
 };
 
 export const spawnZone = (zone, count) => {
-  const es = Object.entries(MONSTER_DEFS).filter(([, d]) => d.zone === zone);
+  const es = getZoneMonsters(zone);
+  if (!es.length) return [];
   const b = zoneBounds(zone), bw = b.x2 - b.x1, bh = b.y2 - b.y1, G = 4, cW = bw / G, cH = bh / G;
   const cells = [];
   for (let r = 0; r < G; r++) for (let c = 0; c < G; c++) cells.push([r, c]);
@@ -127,12 +137,16 @@ export const spawnZone = (zone, count) => {
 };
 
 let eqId = 1;
-export const genEquip = (slot, quality, forProfession = null) => {
+export const genEquip = (slot, quality, forProfession = null, recipeName = null, recipeEmoji = null) => {
   const q = QUALITY[quality], s = EQUIP_SLOTS[slot];
-  const name = EQ_NAMES[slot][Math.floor(Math.random() * EQ_NAMES[slot].length)];
+  const baseName = recipeName || EQ_NAMES[slot][Math.floor(Math.random() * EQ_NAMES[slot].length)];
+  const emoji = recipeEmoji || s.emoji;
   const stats = {};
-  Object.entries(s.baseStats).forEach(([k, v]) => { stats[k] = Math.round(v * q.mult); });
-  return { id: eqId++, slot, quality, name: `${q.name}·${name}`, emoji: s.emoji, stats, color: q.color, ...(forProfession ? { forProfession } : {}) };
+  Object.entries(s.baseStats).forEach(([k, v]) => {
+    const scaled = v * q.mult;
+    stats[k] = Number.isInteger(v) ? Math.round(scaled) : parseFloat(scaled.toFixed(2));
+  });
+  return { id: eqId++, slot, quality, name: `${q.name}·${baseName}`, emoji, stats, color: q.color, ...(forProfession ? { forProfession } : {}) };
 };
 
 let candId = 8000;

@@ -1,5 +1,5 @@
-import { TS, WS, WILD_WS, MS, H_SIGHT, M_SIGHT, M_ATK, SEP } from '../constants/game.js';
-import { dst, moveTo, randInZone, clampZone, tileZone } from '../utils/helpers.js';
+import { TS, WS, WILD_WS, MS, H_SIGHT, M_SIGHT, M_ATK, SEP, ZONE_CHAIN, PORTAL_TX_LEFT, PORTAL_TX_RIGHT, PORTAL_TY, HT } from '../constants/game.js';
+import { dst, moveTo, randInZone, clampZone } from '../utils/helpers.js';
 
 const hasSkill = (h, sk) => (h.skills || []).includes(sk);
 const hunterSight = h => hasSkill(h, 'prophecy') ? H_SIGHT * 5 : hasSkill(h, 'eagle_eye') ? H_SIGHT * 1.3 : H_SIGHT;
@@ -8,6 +8,63 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
   if (h.location === 'TRAVELING') {
     const r = moveTo(h.tx, h.ty, h.destTx, h.destTy, TS);
     if (r.arrived) {
+      // 传送门穿越：到达传送门后切换到目标区域，若有 portalFinalTarget 则继续逐段前进
+      if (h.portalTarget) {
+        const fromZone = h.destZone;
+        const toZone = h.portalTarget;
+        const finalTarget = h.portalFinalTarget || toZone;
+        const fromIdx = ZONE_CHAIN.indexOf(fromZone);
+        const toIdx   = ZONE_CHAIN.indexOf(toZone);
+        const finalIdx = ZONE_CHAIN.indexOf(finalTarget);
+        const goingRight = toIdx > fromIdx;
+        // 从目标区域的入口传送门出现
+        const entryTx = goingRight ? PORTAL_TX_LEFT : PORTAL_TX_RIGHT;
+
+        // 还没到最终目标，继续走向下一段传送门
+        if (toZone !== finalTarget) {
+          const towardFinal = finalIdx > toIdx;
+          const exitTx = towardFinal ? PORTAL_TX_RIGHT : PORTAL_TX_LEFT;
+          const nextZone = ZONE_CHAIN[toIdx + (towardFinal ? 1 : -1)];
+          return {
+            ...h, tx: entryTx, ty: PORTAL_TY,
+            location: 'TRAVELING',
+            destZone: toZone,        // 传送门出口在当前区域(toZone)内
+            destTx: exitTx, destTy: PORTAL_TY,
+            portalTarget: nextZone,
+            portalFinalTarget: nextZone !== finalTarget ? finalTarget : null,
+            wtx: null, nextWander: now + 300,
+            combatTargetId: null, savedDest: null,
+          };
+        }
+
+        // 到达最终目标区域
+        return {
+          ...h, tx: entryTx, ty: PORTAL_TY,
+          location: toZone,
+          destZone: null, destTx: null, destTy: null,
+          portalTarget: null, portalFinalTarget: null,
+          wtx: null, nextWander: now + 500,
+          combatTargetId: null, savedDest: null,
+        };
+      }
+
+      // 幽灵到达目标但没有 portalTarget（异常路径），若 destZone 是野外则改走传送门回村
+      if (h.isGhost && h.destZone && h.destZone !== 'VILLAGE') {
+        const zIdx = ZONE_CHAIN.indexOf(h.destZone);
+        if (zIdx > 0) {
+          const nextToward = ZONE_CHAIN[zIdx - 1];
+          const hasMore = nextToward !== 'VILLAGE';
+          return {
+            ...h, tx: r.x, ty: r.y,
+            location: 'TRAVELING',
+            destZone: h.destZone,
+            destTx: PORTAL_TX_LEFT, destTy: PORTAL_TY,
+            portalTarget: nextToward,
+            portalFinalTarget: hasMore ? 'VILLAGE' : null,
+            combatTargetId: null,
+          };
+        }
+      }
       const a = {
         ...h, tx: r.x, ty: r.y,
         location: h.destZone,
@@ -17,26 +74,9 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
       };
       if (h.destZone === 'VILLAGE') {
         a.visitTradingPost = true;
-
-        // Exiled hunter reaches gate — mark for removal (disappears at gate)
-        if (h.isExiled) {
-          return { ...a, _remove: true };
-        }
+        if (h.isExiled) return { ...a, _remove: true };
       }
       return a;
-    }
-    if (!h.recoverType && !h.isGhost) {
-      const cz = tileZone(h.tx, h.ty);
-      if (cz !== 'VILLAGE') {
-        const sight = hunterSight(h);
-        const vm = curM.filter(m => m.zone === cz && m.hp > 0).find(m => dst(h.tx, h.ty, m.tx, m.ty) <= sight);
-        if (vm) return {
-          ...h, tx: r.x, ty: r.y, location: cz,
-          destZone: null, destTx: null, destTy: null,
-          combatTargetId: vm.id, wtx: null, nextWander: now + 3000,
-          savedDest: h.savedDest ?? { zone: h.destZone, tx: h.destTx, ty: h.destTy },
-        };
-      }
     }
     return { ...h, tx: r.x, ty: r.y, combatTargetId: null };
   }
@@ -55,6 +95,18 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
       }
       // No altar: wander as ghost (fall through to wander logic below)
     }
+    // Rush to skill hall if pendingSkillLearn (and not currently recovering)
+    if (h.pendingSkillLearn && !h.recoverType && !h.recoverUntil && !h.isGhost) {
+      const hall = (buildings || []).find(b => b.type === 'SKILL_HALL');
+      if (hall) {
+        const htx = hall.tx + 2, hty = hall.ty + 2;
+        if (dst(h.tx, h.ty, htx, hty) > 4) {
+          return { ...h, location: 'TRAVELING', destZone: 'VILLAGE', destTx: htx, destTy: hty, wtx: null, nextWander: 0, combatTargetId: null };
+        }
+        return h; // 已在技能大厅附近，等 combat.js 触发学习
+      }
+    }
+
     // Rush to healing/tavern building at full travel speed (TRAVELING state → yellow dot)
     if (h.recoverType && !h.recoverUntil) {
       const bldgType = h.recoverType === 'HP' ? 'HEALER' : 'TAVERN';
@@ -66,13 +118,10 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
         }
         return h; // already at building — combat.js proximity check will fire
       }
-      // No building: head to HQ and wait for HP/hunger to recover (combat.js passive regen handles dispatch)
+      // No building: wander toward HQ/center and wait for passive regen (keep location='VILLAGE' so combat.js runs)
       const hq = (buildings || []).find(b => b.type === 'HEADQUARTERS');
-      const htx = hq ? hq.tx + 2 : 59, hty = hq ? hq.ty + 2 : 59;
-      if (dst(h.tx, h.ty, htx, hty) > 4) {
-        return { ...h, location: 'TRAVELING', destZone: 'VILLAGE', destTx: htx, destTy: hty, wtx: null, nextWander: 0, combatTargetId: null };
-      }
-      return h; // at HQ — stay put, combat.js okHP/okHunger will clear recoverType and dispatch
+      const htx = hq ? hq.tx + 2 : Math.floor(HT / 2), hty = hq ? hq.ty + 2 : Math.floor(HT / 2);
+      return { ...h, wtx: htx, wty: hty, nextWander: 0, combatTargetId: null };
     }
     if (!h.wtx || !h.nextWander || now > h.nextWander) {
       const w = randInZone('VILLAGE');
@@ -80,6 +129,26 @@ export const procHunterMove = (hunters, curM, buildings, now) => hunters.map(h =
     }
     const r = moveTo(h.tx, h.ty, h.wtx, h.wty, WS * 0.6);
     return { ...h, tx: r.x, ty: r.y, ...(r.arrived ? { nextWander: now + 1500 + Math.random() * 2500 } : {}) };
+  }
+
+  // 幽灵不应在野外游荡：立即走传送门回村庄
+  if (h.isGhost) {
+    const zIdx = ZONE_CHAIN.indexOf(h.location);
+    if (zIdx > 0) {
+      const nextToward = ZONE_CHAIN[zIdx - 1];
+      const hasMore = nextToward !== 'VILLAGE';
+      return {
+        ...h,
+        location: 'TRAVELING',
+        destZone: h.location,
+        destTx: PORTAL_TX_LEFT, destTy: PORTAL_TY,
+        portalTarget: nextToward,
+        portalFinalTarget: hasMore ? 'VILLAGE' : null,
+        combatTargetId: null, wtx: null, nextWander: 0,
+      };
+    }
+    // 在 VILLAGE（理论上不会走到这里），走向大本营等待祭坛
+    return { ...h, wtx: PORTAL_TX_RIGHT - 30, wty: PORTAL_TY, nextWander: 0 };
   }
 
   const sight = hunterSight(h);
@@ -105,11 +174,12 @@ export const procMonsterMove = (monsters, curH, now) => {
   const upd = monsters.map(m => {
     // Monsters never leave their zone — target must still have tiles within this zone
     const ag = m.targetHunterId
-      ? curH.find(h => h.id === m.targetHunterId && !isNaN(h.tx) && !h.isGhost && tileZone(h.tx, h.ty) === m.zone)
+      ? curH.find(h => h.id === m.targetHunterId && !isNaN(h.tx) && !h.isGhost && h.location === m.zone)
       : null;
     // Taunt: warriors with taunt in sight range take priority as targets
     // Ghosts are invisible to monsters
-    const inSight = !ag ? curH.filter(h => h.location === m.zone && !isNaN(h.tx) && !h.isGhost && dst(m.tx, m.ty, h.tx, h.ty) <= M_SIGHT) : [];
+    // 同时包含正在逃跑（TRAVELING）但还在本区域内的猎人
+    const inSight = !ag ? curH.filter(h => (h.location === m.zone || (h.location === 'TRAVELING' && h.destZone === m.zone)) && !isNaN(h.tx) && !h.isGhost && dst(m.tx, m.ty, h.tx, h.ty) <= M_SIGHT) : [];
     const tauntHunter = inSight.find(h => h.profession === 'WARRIOR' && hasSkill(h, 'taunt'));
     const si = !ag ? (tauntHunter || inSight.sort((a, b) => dst(m.tx, m.ty, a.tx, a.ty) - dst(m.tx, m.ty, b.tx, b.ty))[0] || null) : null;
     const tg = ag || si;

@@ -13,7 +13,7 @@ export default function EquipPanel({ inventory, materials, hunters, onEquip, onC
   );
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={SS} onClick={e => e.stopPropagation()}>
         <div style={SH}>
           <span style={{ fontWeight: 'bold', fontSize: 15 }}>📦 仓库</span>
@@ -45,8 +45,9 @@ export default function EquipPanel({ inventory, materials, hunters, onEquip, onC
                       </div>
                       <div style={{ fontSize: 10, color: '#94a3b8' }}>
                         {Object.entries(item.stats).map(([k, v]) => {
-                          const L = { atk: '⚔️攻击', def: '🛡️防御', maxHpBonus: '❤️生命', crit: '💥暴击', dodge: '🌀闪避' };
-                          return <span key={k} style={{ marginRight: 5 }}>{L[k] || k}+{v}{k === 'crit' || k === 'dodge' ? '%' : ''}</span>;
+                          const L = { atk: '⚔️攻击', def: '🛡️防御', maxHpBonus: '❤️生命', crit: '💥暴击', dodge: '🌀闪避', atkSpeed: '⚡攻速' };
+                          const sfx = k === 'crit' || k === 'dodge' ? '%' : k === 'atkSpeed' ? '/s' : '';
+                          return <span key={k} style={{ marginRight: 5 }}>{L[k] || k}+{v}{sfx}</span>;
                         })}
                       </div>
                       {sel && (
